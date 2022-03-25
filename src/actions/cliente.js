@@ -19,16 +19,19 @@ const processaLista = async (records) => {
   const groupedClientList = _.groupBy(clientes, "id");
 
   const listaProcessada = _.map(groupedClientList, (cliente) => {
+    let telefoneList = [];
     _.map(cliente, (prop) => {
       propriedades = { ...propriedades, ...prop };
-      if (prop.comercial)
-        propriedades = { ...propriedades, comercial: prop.comercial };
-      if (prop.residencial)
-        propriedades = { ...propriedades, residencial: prop.residencial };
-      if (prop.celular)
-        propriedades = { ...propriedades, celular: prop.celular };
+      telefoneList.push({
+        tipo: prop.tipo,
+        num: prop.num,
+      });
     });
-    return propriedades;
+
+    return {
+      ...propriedades,
+      telefoneList: _.orderBy(telefoneList, ["tipo"], ["asc"]),
+    };
   });
 
   return listaProcessada;
@@ -55,44 +58,48 @@ module.exports = {
   },
   async insert({ nome, email, cpf, telefoneList }) {
     await session.run(
-      `CREATE (p:Cliente {nome: $nome, email: $email, cpf: $cpf }),
-        (p)<-[:CONTENHA]-(:Celular {celular: $celular}),
-        (p)<-[:CONTENHA]-(:Residencial {residencial: $residencial }),
-        (p)<-[:CONTENHA]-(:Comercial {comercial: $comercial })
-       RETURN p`,
+      `CREATE (p:Cliente {nome: $nome, email: $email, cpf: $cpf })
+       WITH $telefoneList as lista, p
+       UNWIND lista as row
+       CREATE (p)<-[:CONTENHA]-(t:Telefone{ tipo: row.tipo, num: row.num})
+       RETURN p, t`,
       {
         nome,
         email,
         cpf,
-        celular: telefoneList.celular,
-        residencial: telefoneList.residencial,
-        comercial: telefoneList.comercial,
+        telefoneList,
       }
     );
   },
   async update({ id, nome, email, cpf, telefoneList }) {
+    // Exclui relacionamentos
     await session.run(
-      `MATCH (p:Cliente),
-        (p)<-[:CONTENHA]-(ce:Celular),
-        (p)<-[:CONTENHA]-(r:Residencial),
-        (p)<-[:CONTENHA]-(co:Comercial)
-       WHERE id(p) = $id
-       SET 
+      `MATCH (p:Cliente)--(t) 
+      WHERE id(p) = $id
+      DETACH DELETE t`,
+      {
+        id: parseInt(id),
+      }
+    );
+    // Atualiza campos principais e recria relacionamentos
+    await session.run(
+      `MATCH (p:Cliente)
+      WHERE id(p) = $id
+      SET 
         p.nome = $nome, 
         p.email = $email,
-        p.cpf = $cpf,
-        ce.celular = $celular,
-        r.residencial = $residencial,
-        co.comercial = $comercial
+        p.cpf = $cpf
+      WITH $telefoneList as lista, p
+      UNWIND lista as row
+      CREATE (p)<-[:CONTENHA]-(t:Telefone{ tipo: row.tipo, num: row.num})
+      RETURN p, t
       `,
       {
         id: parseInt(id),
         nome,
         email,
         cpf,
-        celular: telefoneList.celular,
-        residencial: telefoneList.residencial,
-        comercial: telefoneList.comercial,
+        telefoneList,
       }
     );
   },
