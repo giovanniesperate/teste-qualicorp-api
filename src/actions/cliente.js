@@ -41,14 +41,14 @@ const processaLista = async (records) => {
 module.exports = {
   async get() {
     const { records } = await session.run(
-      `MATCH (p:Cliente)--(t)
+      `MATCH (p:Cliente)<-[:CONTENHA]-(t:Telefone)
        RETURN p, t`
     );
     return await processaLista(records);
   },
   async getById({ guid }) {
     const { records } = await session.run(
-      `MATCH (p:Cliente { guid: $guid })--(t) 
+      `MATCH (p:Cliente { guid: $guid })<-[:CONTENHA]-(t:Telefone) 
        RETURN p, t`,
       {
         guid,
@@ -75,8 +75,8 @@ module.exports = {
   async update({ guid, nome, email, cpf, telefoneList }) {
     // Exclui relacionamentos
     await session.run(
-      `MATCH (p:Cliente { guid: $guid })--(t) 
-      DETACH DELETE t`,
+      `MATCH (p:Cliente { guid: $guid })<-[v:CONTENHA]-(t:Telefone) 
+      DELETE v, t`,
       {
         guid,
       }
@@ -104,8 +104,8 @@ module.exports = {
   },
   async delete({ guid }) {
     await session.run(
-      `MATCH (p:Cliente { guid: $guid })--(t) 
-      DETACH DELETE p, t`,
+      `MATCH (p:Cliente { guid: $guid })<-[v:CONTENHA]-(t:Telefone) 
+      DELETE v, p, t`,
       {
         guid,
       }
