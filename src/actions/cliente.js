@@ -1,6 +1,7 @@
 const _ = require("lodash");
 
 const { session } = require("../helpers/database");
+const { v4: uuidv4 } = require("uuid");
 
 const processaLista = async (records) => {
   let clientes = [];
@@ -45,25 +46,25 @@ module.exports = {
     );
     return await processaLista(records);
   },
-  async getById({ id }) {
+  async getById({ guid }) {
     const { records } = await session.run(
-      `MATCH (p:Cliente)--(t) 
-       WHERE id(p) = $id 
+      `MATCH (p:Cliente { guid: $guid })--(t) 
        RETURN p, t`,
       {
-        id: parseInt(id),
+        guid,
       }
     );
     return _.first(await processaLista(records));
   },
   async insert({ nome, email, cpf, telefoneList }) {
     await session.run(
-      `CREATE (p:Cliente {nome: $nome, email: $email, cpf: $cpf })
+      `CREATE (p:Cliente {guid: $guid, nome: $nome, email: $email, cpf: $cpf })
        WITH $telefoneList as lista, p
        UNWIND lista as row
        CREATE (p)<-[:CONTENHA]-(t:Telefone{ tipo: row.tipo, num: row.num})
        RETURN p, t`,
       {
+        guid: uuidv4(),
         nome,
         email,
         cpf,
@@ -71,20 +72,18 @@ module.exports = {
       }
     );
   },
-  async update({ id, nome, email, cpf, telefoneList }) {
+  async update({ guid, nome, email, cpf, telefoneList }) {
     // Exclui relacionamentos
     await session.run(
-      `MATCH (p:Cliente)--(t) 
-      WHERE id(p) = $id
+      `MATCH (p:Cliente { guid: $guid })--(t) 
       DETACH DELETE t`,
       {
-        id: parseInt(id),
+        guid,
       }
     );
     // Atualiza campos principais e recria relacionamentos
     await session.run(
-      `MATCH (p:Cliente)
-      WHERE id(p) = $id
+      `MATCH (p:Cliente { guid: $guid })
       SET 
         p.nome = $nome, 
         p.email = $email,
@@ -95,7 +94,7 @@ module.exports = {
       RETURN p, t
       `,
       {
-        id: parseInt(id),
+        guid,
         nome,
         email,
         cpf,
@@ -103,13 +102,12 @@ module.exports = {
       }
     );
   },
-  async delete({ id }) {
+  async delete({ guid }) {
     await session.run(
-      `MATCH (p:Cliente)--(t) 
-      WHERE id(p) = $id
+      `MATCH (p:Cliente { guid: $guid })--(t) 
       DETACH DELETE p, t`,
       {
-        id: parseInt(id),
+        guid,
       }
     );
   },

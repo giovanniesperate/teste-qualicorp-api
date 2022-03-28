@@ -14,7 +14,7 @@ router.get("/", (req, res) => {
     });
 });
 
-router.get("/:id", (req, res) => {
+router.get("/:guid", (req, res) => {
   cliente
     .getById({ ...req.params })
     .then((result) => res.json(result))
@@ -32,18 +32,18 @@ router.post("/", (req, res) => {
     });
 });
 
-router.put("/:id", (req, res) => {
+router.put("/:guid", (req, res) => {
   cliente
-    .update({ ...req.body, id: req.params.id })
+    .update({ ...req.body, guid: req.params.guid })
     .then((result) => res.json(result))
     .catch((err) => {
       apiErrorHandler(err, req, res);
     });
 });
 
-router.delete("/:id", (req, res) => {
+router.delete("/:guid", (req, res) => {
   cliente
-    .delete({ id: req.params.id })
+    .delete({ guid: req.params.guid })
     .then((result) => res.json(result))
     .catch((err) => {
       apiErrorHandler(err, req, res);
